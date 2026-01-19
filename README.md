@@ -2,6 +2,8 @@ Check the Live Demo Using Gradio Interface - https://customer-support-ticket-cla
 
 give this command for shortcut and check app - Can you tell me more about the UltraClean Vacuum warranty? Also, is it available in white? 
 
+above commond in my excel file store you can check my excel file data.
+
 Problem Statement
 Objective:
 Develop a machine learning pipeline that classifies customer support tickets by their issue
