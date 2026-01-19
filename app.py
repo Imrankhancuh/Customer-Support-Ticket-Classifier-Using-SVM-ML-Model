@@ -16,13 +16,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import gradio as gr
 
 # ===============================
-# DOWNLOAD NLTK DATA
-# ===============================
-nltk.download("punkt")
-nltk.download("stopwords")
-nltk.download("wordnet")
-
-# ===============================
 # LOAD DATASET
 # ===============================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -266,6 +259,6 @@ iface = gr.Interface(
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
     iface.launch(
-        server_name="0.0.0.0" if "PORT" in os.environ else "127.0.0.1",
+        server_name="0.0.0.0",
         server_port=port
     )
