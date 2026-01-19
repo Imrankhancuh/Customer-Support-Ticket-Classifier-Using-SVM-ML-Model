@@ -1,8 +1,15 @@
 import os
+import nltk
+
+# ===============================
+# NLTK DATA PATH FIX (REQUIRED FOR RAILWAY)
+# ===============================
+NLTK_DATA_DIR = os.path.join(os.getcwd(), "nltk_data")
+nltk.data.path.append(NLTK_DATA_DIR)
+
 import re
 import json
 import pandas as pd
-import nltk
 from collections import Counter
 
 from nltk.corpus import stopwords
@@ -177,15 +184,9 @@ def extract_dates(text):
 
 def extract_complaints(text):
     text = text.lower()
-    matches = []
-
-    for kw in ALL_COMPLAINT_KEYWORDS:
-        if kw in text:
-            matches.append(kw)
-
+    matches = [kw for kw in ALL_COMPLAINT_KEYWORDS if kw in text]
     if not matches:
         return []
-
     matches.sort(key=lambda k: (-len(k.split()), text.find(k)))
     return [matches[0]]
 
@@ -201,10 +202,8 @@ def rule_based_urgency(text):
     matched = match_from_dataset(text, "urgency_level")
     if matched is not None:
         return matched
-
     if any(k in text.lower() for k in HIGH_RULES):
         return "High"
-
     return urgency_model.predict([clean_text(text)])[0]
 
 # ===============================
@@ -262,4 +261,3 @@ if __name__ == "__main__":
         server_port=int(os.environ.get("PORT", 7860)),
         share=False
     )
-
