@@ -182,7 +182,6 @@ def extract_dates(text):
     ]
     return list({m.group() for p in patterns for m in re.finditer(p, text)})
 
-# ✅ ONLY CHANGE: SINGLE BEST COMPLAINT KEYWORD
 def extract_complaints(text):
     text = text.lower()
     matches = []
@@ -265,4 +264,8 @@ iface = gr.Interface(
 )
 
 if __name__ == "__main__":
-    iface.launch()
+    port = int(os.environ.get("PORT", 7860))
+    iface.launch(
+        server_name="0.0.0.0" if "PORT" in os.environ else "127.0.0.1",
+        server_port=port
+    )
