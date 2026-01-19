@@ -1,0 +1,2 @@
+web: python nltk_setup.py && python app.py
+
