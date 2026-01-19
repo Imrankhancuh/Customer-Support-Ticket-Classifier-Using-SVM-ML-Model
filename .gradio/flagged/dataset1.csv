@@ -1,0 +1,3 @@
+ticket_text,Prediction & Extracted Entities (JSON),timestamp
+Payment issue for my SmartWatch V2. I was underbilled for order #29224.,"{""issue_type"": ""Billing Problem"", ""urgency_level"": ""Medium"", ""entities"": {""products"": [""smartwatch v2""], ""dates"": [], ""complaint_keywords"": [""issue""]}}",2026-01-13 12:52:25.403432
+,,2026-01-13 13:16:06.294040
