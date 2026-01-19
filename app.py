@@ -1,16 +1,15 @@
 import os
-import nltk
-
-# ===============================
-# NLTK DATA PATH FIX (REQUIRED FOR RAILWAY)
-# ===============================
-NLTK_DATA_DIR = os.path.join(os.getcwd(), "nltk_data")
-nltk.data.path.append(NLTK_DATA_DIR)
-
 import re
 import json
 import pandas as pd
+import nltk
 from collections import Counter
+
+# ===============================
+# NLTK DATA PATH FIX (RAILWAY SAFE)
+# ===============================
+NLTK_DATA_DIR = os.path.join(os.getcwd(), "nltk_data")
+nltk.data.path.append(NLTK_DATA_DIR)
 
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -53,7 +52,7 @@ if PRODUCT_COL is None:
     raise ValueError("❌ No product column found")
 
 # ===============================
-# TEXT CLEANING
+# TEXT CLEANING (NO punkt)
 # ===============================
 stop_words = set(stopwords.words("english"))
 lemmatizer = WordNetLemmatizer()
@@ -62,7 +61,7 @@ def clean_text(text):
     text = str(text).lower()
     text = re.sub(r"[^a-z\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-    tokens = nltk.word_tokenize(text)
+    tokens = re.findall(r"[a-z]+", text)
     return " ".join(lemmatizer.lemmatize(t) for t in tokens if t not in stop_words)
 
 df["clean_text"] = df["ticket_text"].apply(clean_text)
@@ -91,7 +90,7 @@ X_product = df["product_text"]
 y_product = df[PRODUCT_COL].astype(str)
 
 # ===============================
-# ML MODELS
+# ML MODELS (FIXED)
 # ===============================
 issue_model = Pipeline([
     ("tfidf", TfidfVectorizer(max_features=5000, ngram_range=(1, 2))),
@@ -131,11 +130,9 @@ def match_from_dataset(ticket_text, column, threshold=0.55):
     vec = tfidf_matcher.transform([clean])
     sims = cosine_similarity(vec, ticket_matrix)[0]
     idx = sims.argmax()
-
     if sims[idx] >= threshold:
-        value = df.iloc[idx][column]
-        return value if value != "" else ""
-
+        val = df.iloc[idx][column]
+        return val if val else None
     return None
 
 # ===============================
@@ -147,61 +144,29 @@ MONTHS = (
 )
 
 COMPLAINT_KEYWORDS = [
-    "urgent", "asap", "immediately",
-    "failed", "error", "down",
-    "not working", "broken", "damaged",
-    "delay", "late", "missing",
-    "refund", "cancel", "complaint",
-    "payment issue", "payment failed", "transaction failed"
+    "urgent", "asap", "immediately", "failed", "error",
+    "down", "not working", "broken", "damaged",
+    "delay", "late", "missing", "refund",
+    "cancel", "complaint", "payment issue",
+    "payment failed", "transaction failed"
 ]
 
-issue_keywords = {
-    clean_text(i).replace("_", " ")
-    for i in df["issue_type"].unique()
-    if i
-}
-
-ticket_word_counts = Counter(
-    word
-    for text in df["clean_text"]
-    for word in text.split()
-    if len(word) > 4
-)
-
-frequent_ticket_keywords = {
-    word for word, count in ticket_word_counts.items() if count >= 10
-}
-
-ALL_COMPLAINT_KEYWORDS = set(COMPLAINT_KEYWORDS) | issue_keywords | frequent_ticket_keywords
-
 def extract_dates(text):
-    text = text.lower()
     patterns = [
         r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
         rf"\b\d{{1,2}}\s(?:{MONTHS})(?:\s\d{{4}})?\b"
     ]
-    return list({m.group() for p in patterns for m in re.finditer(p, text)})
+    return list({m.group() for p in patterns for m in re.finditer(p, text.lower())})
 
 def extract_complaints(text):
-    text = text.lower()
-    matches = [kw for kw in ALL_COMPLAINT_KEYWORDS if kw in text]
-    if not matches:
-        return []
-    matches.sort(key=lambda k: (-len(k.split()), text.find(k)))
-    return [matches[0]]
+    return [kw for kw in COMPLAINT_KEYWORDS if kw in text.lower()][:1]
 
 # ===============================
 # RULE-BASED URGENCY
 # ===============================
-HIGH_RULES = [
-    "urgent", "asap", "immediately",
-    "not working", "failed", "error", "broken"
-]
+HIGH_RULES = ["urgent", "asap", "immediately", "failed", "error", "broken"]
 
 def rule_based_urgency(text):
-    matched = match_from_dataset(text, "urgency_level")
-    if matched is not None:
-        return matched
     if any(k in text.lower() for k in HIGH_RULES):
         return "High"
     return urgency_model.predict([clean_text(text)])[0]
@@ -214,9 +179,7 @@ def predict_product(ticket_text, issue_type):
     if matched:
         return matched
 
-    clean = clean_text(ticket_text)
-    combined = issue_type + " " + clean
-
+    combined = issue_type + " " + clean_text(ticket_text)
     decision = product_model.named_steps["svm"].decision_function(
         product_model.named_steps["tfidf"].transform([combined])
     )
@@ -230,14 +193,13 @@ def predict_product(ticket_text, issue_type):
 # FINAL CLASSIFIER
 # ===============================
 def classify_ticket(ticket_text):
-    issue_matched = match_from_dataset(ticket_text, "issue_type")
-    issue = issue_matched if issue_matched is not None else issue_model.predict([clean_text(ticket_text)])[0]
-
-    urgency = rule_based_urgency(ticket_text)
+    issue = match_from_dataset(ticket_text, "issue_type")
+    if issue is None:
+        issue = issue_model.predict([clean_text(ticket_text)])[0]
 
     return {
         "issue_type": issue,
-        "urgency_level": urgency,
+        "urgency_level": rule_based_urgency(ticket_text),
         "product": predict_product(ticket_text, issue),
         "entities": {
             "dates": extract_dates(ticket_text),
